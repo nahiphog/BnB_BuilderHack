@@ -23,6 +23,9 @@ let liveHash = goodVerdict.transactionHash;
 let liveRunning = false;
 let liveLog: string[] = [];
 let showAllSentinelTicks = false;
+let auditOpen = false;
+let guideOpen = false;
+let guideStep = 0;
 let marketPoints: ChartPoint[] | null = null;
 let marketSource = "saved Sentinel run";
 let marketUpdatedAt = 0;
@@ -178,22 +181,64 @@ function sentinelPanel() {
     return `<li class="${e.kind} ${tone}"><time>${time}</time><b>${icon[e.kind] ?? "·"}</b><span>${escapeHtml(e.text)}${extra}${verify}</span></li>`;
   }).join("");
   const s = sentinelRun.summary ?? {};
-  return `<section class="panel sentinel" id="sentinel"><div class="panel-title"><div><p class="kicker">AUTONOMOUS AGENT · LAST RUN</p><h3>Sentinel: an AI risk agent, refereed by Mandate</h3></div><span>Brain: ${escapeHtml(sentinelRun.brain || "unknown")}</span></div>
+  return `<section class="panel sentinel" id="sentinel"><div class="panel-title"><div><p class="kicker">AUTONOMOUS AGENT · LAST RUN</p><h3>Sentinel: an AI risk agent, refereed by Mandate</h3><p class="sentinel-caption">What am I looking at? Sentinel may propose a trade; Mandate alone decides whether it is allowed and can be paid.</p></div><span>Brain: ${escapeHtml(sentinelRun.brain || "unknown")}</span></div>
     <div class="sentinel-loop"><span>Watch live market</span><i>→</i><span>AI decides</span><i>→</i><span class="guard">Guard checks mandate before signing</span><i>→</i><span>Signs trade itself</span><i>→</i><span class="prove">Mandate proves it</span></div>
     <div class="sentinel-stats"><div><strong>${s.trades ?? 0}</strong><span>autonomous trades</span></div><div><strong>${s.blocked ?? 0}</strong><span>blocked before signing</span></div><div><strong>${sentinelRun.events.filter((e) => e.kind === "verdict" && e.data?.pass).length}</strong><span>Mandate PASS verdicts</span></div></div>
     ${sentinelChart(sentinelRun)}
     <div class="sentinel-log-head"><strong>Run activity</strong><button data-sentinel-toggle="true">${showAllSentinelTicks ? "Hide market ticks" : "Show all ticks"}</button></div><ol class="sentinel-log">${rows}</ol></section>`;
 }
 
+const guideSteps = [
+  {
+    kicker: "STEP 1 OF 3 · SET THE MANDATE",
+    title: "The buyer sets non-negotiable limits.",
+    text: "Encik Rahman permits only BNB ↔ BUSD through PancakeSwap V2 Testnet. An entry may never exceed 0.01 tBNB.",
+    evidence: "These rules are code constraints—not instructions the AI can edit.",
+    target: "sentinel",
+    targetLabel: "Show the guardrails"
+  },
+  {
+    kicker: "STEP 2 OF 3 · SENTINEL DECIDES",
+    title: "The agent watches, reasons, and proposes.",
+    text: "Sentinel reads market data, proposes ENTER, EXIT, or HOLD, then submits a trade itself only if the fixed guard permits it.",
+    evidence: "The activity timeline separates the AI decision from the guard and on-chain transaction.",
+    target: "sentinel",
+    targetLabel: "Show Sentinel’s run"
+  },
+  {
+    kicker: "STEP 3 OF 3 · MANDATE PROVES",
+    title: "Proof determines payment.",
+    text: "A permitted trade receives a green nine-check verdict. An overspend of 0.02 tBNB against a 0.01 tBNB cap is rejected before payment.",
+    evidence: "No proof, no pay. Open the audit examples to inspect the real BSC Testnet evidence.",
+    target: "audit-examples",
+    targetLabel: "Open the failing audit"
+  }
+] as const;
+
+function guideMarkup() {
+  if (!guideOpen) return "";
+  const step = guideSteps[guideStep];
+  const last = guideStep === guideSteps.length - 1;
+  return `<div class="guide-backdrop" role="presentation"><section class="demo-guide" role="dialog" aria-modal="true" aria-labelledby="guide-title"><button class="guide-close" data-guide-close aria-label="Close demo guide">×</button><p class="kicker">${step.kicker}</p><div class="guide-progress" aria-label="Demo progress">${guideSteps.map((_, index) => `<i class="${index <= guideStep ? "active" : ""}"></i>`).join("")}</div><h2 id="guide-title">${step.title}</h2><p>${step.text}</p><p class="guide-evidence">${step.evidence}</p><div class="guide-actions"><button class="guide-link" data-guide-target="${step.target}">${step.targetLabel} ↓</button><span></span>${guideStep > 0 ? '<button class="guide-secondary" data-guide-prev>Back</button>' : ""}<button class="primary" data-guide-next>${last ? "Finish demo" : "Next"} →</button></div></section></div>`;
+}
+
 function dashboardMarkup() {
   return `<aside class="sidebar"><div class="logo"><span class="mark">●</span>mandate</div><div class="side-copy"><p class="kicker">BSC TESTNET DEMO</p><strong>Deterministic proof for agent trades.</strong></div><div class="network"><i></i>BSC Testnet</div></aside>
   <main><header><div class="crumb">Mandate <b>/</b> BSC Testnet</div><a class="docs" href="https://github.com/nahiphog/BnB_BuilderHack#readme" target="_blank" rel="noreferrer">GitHub documentation ↗</a></header><div class="page">
-    <section class="intro"><div><p class="kicker">MANDATE PROTOCOL</p><h2>Proof before payment.</h2><p>Every executor must prove it followed the buyer’s rules before it can get paid.</p><p class="malaysia">Malaysians lost RM2.68 billion to fake investment schemes (2024 to May 2026). Mandate makes “my trading bot works” provable.</p></div><a class="primary hero-action" href="#sentinel">Watch the AI agent’s last run ↓</a></section>
+    <section class="intro"><div><p class="kicker">MANDATE PROTOCOL</p><h2>Proof before payment.</h2><p>Every executor must prove it followed the buyer’s rules before it can get paid.</p><p class="malaysia">Malaysians lost RM2.68 billion to fake investment schemes (2024 to May 2026). Mandate makes “my trading bot works” provable.</p></div><button class="primary hero-action" data-guide-start>Start 90-second demo →</button></section>
     ${sentinelPanel()}
     <section class="metrics"><article><span>Buyer</span><strong>Encik Rahman</strong><p>Demo buyer · BSC Testnet</p></article><article><span>Mandate cap</span><strong>0.01 <small>tBNB</small></strong><p>No escrow funded in this demo</p></article><article><span>Deterministic proof</span><strong>9 <small>checks</small></strong><p class="green">Every rule is shown below</p></article><article><span>Verification price</span><strong>$0.01</strong><p>Per deterministic check</p></article></section>
-    <section class="grid"><div class="panel"><div class="panel-title"><div><p class="kicker">DEMO CASES</p><h3>Verifier scenarios</h3></div></div><div class="mandates">${mandateRows()}</div><div class="how-it-works"><p class="kicker">HOW IT WORKS</p><div><article><b>1</b><span><strong>Mandate</strong><small>Buyer defines a cap, route and recipient.</small></span></article><article><b>2</b><span><strong>Executor trades</strong><small>Agent submits the BSC Testnet transaction.</small></span></article><article><b>3</b><span><strong>Code verifies</strong><small>No proof, no pay.</small></span></article></div></div>${livePanel()}</div><div id="result">${verdictMarkup(currentVerdict)}</div></section>
+    <details class="audit-examples" id="audit-examples" ${auditOpen ? "open" : ""}><summary><span><b>Audit examples</b><small>Inspect the honest trade, the blocked overspend, and re-run all nine checks.</small></span><i>Show</i></summary><section class="grid"><div class="panel"><div class="panel-title"><div><p class="kicker">DEMO CASES</p><h3>Verifier scenarios</h3></div></div><div class="mandates">${mandateRows()}</div><div class="how-it-works"><p class="kicker">HOW IT WORKS</p><div><article><b>1</b><span><strong>Mandate</strong><small>Buyer defines a cap, route and recipient.</small></span></article><article><b>2</b><span><strong>Executor trades</strong><small>Agent submits the BSC Testnet transaction.</small></span></article><article><b>3</b><span><strong>Code verifies</strong><small>No proof, no pay.</small></span></article></div></div>${livePanel()}</div><div id="result">${verdictMarkup(currentVerdict)}</div></section></details>
     <section class="panel timeline"><div class="panel-title"><div><p class="kicker">${currentMandate.id}</p><h3>Evidence flow</h3></div><span>Real BSC Testnet evidence</span></div><div class="steps">${evidenceFlow()}</div></section>
-  </div></main><div id="toast" role="status"></div>`;
+  </div></main><div id="toast" role="status"></div>${guideMarkup()}`;
+}
+
+function spotlight(targetId: string) {
+  const target = document.getElementById(targetId);
+  if (!target) return;
+  target.scrollIntoView({ behavior: "smooth", block: "start" });
+  target.classList.add("guide-focus");
+  window.setTimeout(() => target.classList.remove("guide-focus"), 2600);
 }
 
 function showToast(message: string) {
@@ -278,6 +323,48 @@ function render() {
   document.querySelector<HTMLButtonElement>("[data-sentinel-toggle]")?.addEventListener("click", () => {
     showAllSentinelTicks = !showAllSentinelTicks;
     render();
+  });
+  document.querySelector<HTMLButtonElement>("[data-guide-start]")?.addEventListener("click", () => {
+    guideStep = 0;
+    guideOpen = true;
+    render();
+  });
+  document.querySelector<HTMLButtonElement>("[data-guide-close]")?.addEventListener("click", () => {
+    guideOpen = false;
+    render();
+  });
+  document.querySelector<HTMLButtonElement>("[data-guide-prev]")?.addEventListener("click", () => {
+    guideStep = Math.max(0, guideStep - 1);
+    render();
+  });
+  document.querySelector<HTMLButtonElement>("[data-guide-next]")?.addEventListener("click", () => {
+    if (guideStep === guideSteps.length - 1) {
+      guideOpen = false;
+      auditOpen = true;
+      currentMandate = mandates.find((mandate) => mandate.status === "failed") ?? currentMandate;
+      currentVerdict = failedVerdict;
+      verdictSource = "saved";
+      render();
+      window.setTimeout(() => spotlight("audit-examples"), 0);
+      return;
+    }
+    guideStep++;
+    render();
+  });
+  document.querySelector<HTMLButtonElement>("[data-guide-target]")?.addEventListener("click", () => {
+    const target = document.querySelector<HTMLButtonElement>("[data-guide-target]")?.dataset.guideTarget;
+    guideOpen = false;
+    if (target === "audit-examples") {
+      auditOpen = true;
+      currentMandate = mandates.find((mandate) => mandate.status === "failed") ?? currentMandate;
+      currentVerdict = failedVerdict;
+      verdictSource = "saved";
+    }
+    render();
+    window.setTimeout(() => spotlight(target ?? "sentinel"), 0);
+  });
+  document.querySelector<HTMLDetailsElement>("#audit-examples")?.addEventListener("toggle", (event) => {
+    auditOpen = (event.currentTarget as HTMLDetailsElement).open;
   });
   wireChartTips();
   void refreshMarketChart();
