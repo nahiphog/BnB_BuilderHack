@@ -21,11 +21,13 @@ npm ci
 npm run serve
 ```
 
-During local Vite development, the UI automatically calls `http://localhost:8787/api/verify` and sends the shared mandate plus the selected transaction hash. To point at another verifier endpoint, create `web/.env.local` with:
+The dashboard stays on the saved on-chain verdicts unless a verifier endpoint is explicitly configured. To use a local verifier, run `cd ../core && npm run serve`, then create `web/.env.local` with:
 
 ```bash
-VITE_VERIFY_URL=https://your-verifier.example/api/verify
+VITE_VERIFY_URL=http://localhost:8787/api/verify
 ```
+
+Replace the value with another HTTPS endpoint when one is available.
 
 The client sends `POST` JSON in the format:
 

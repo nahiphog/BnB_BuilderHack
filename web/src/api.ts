@@ -1,8 +1,9 @@
 import { demoMandate, toDisplayVerdict } from "./fixtures";
 import type { SharedVerdict, VerificationVerdict } from "./types";
 
-const verifierUrl = (import.meta.env.VITE_VERIFY_URL as string | undefined)
-  ?? (import.meta.env.DEV ? "http://localhost:8787/api/verify" : undefined);
+const verifierUrl = import.meta.env.VITE_VERIFY_URL as string | undefined;
+
+export const isLiveVerifierConfigured = Boolean(verifierUrl);
 
 export async function verifyTransaction(transactionHash: string): Promise<VerificationVerdict> {
   if (!verifierUrl) throw new Error("Live verifier is not configured");

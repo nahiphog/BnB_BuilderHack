@@ -6,7 +6,12 @@ import type { Mandate, SharedMandate, SharedVerdict, VerificationVerdict } from 
 export const demoMandate = mandateJson as SharedMandate;
 
 const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
-const amountFromEvidence = (evidence: string) => evidence.match(/^(\d+(?:\.\d+)?)/)?.[1] ?? "Recorded";
+function amountFromEvidence(evidence: string) {
+  const raw = evidence.match(/^(\d+(?:\.\d+)?)/)?.[1];
+  if (!raw) return "Recorded";
+  const numeric = Number(raw);
+  return Number.isFinite(numeric) ? numeric.toFixed(4).replace(/\.?(0+)$/, "") : raw;
+}
 
 function expectedRule(name: string) {
   const rules: Record<string, string> = {

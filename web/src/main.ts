@@ -1,5 +1,5 @@
 import "./styles.css";
-import { verifyTransaction } from "./api";
+import { isLiveVerifierConfigured, verifyTransaction } from "./api";
 import { failedVerdict, goodVerdict, mandates } from "./fixtures";
 import type { VerificationVerdict } from "./types";
 
@@ -20,7 +20,7 @@ function verdictMarkup(verdict: VerificationVerdict) {
   const tone = verdict.pass ? "pass" : "fail";
   return `<section class="result-card ${tone}" aria-live="polite">
     <div class="result-head"><div><p class="kicker">VERIFIER RESULT</p><h1>${verdict.pass ? "Mandate verified" : "Mandate rejected"}</h1><p>${verdict.report}</p></div><span class="verdict ${tone}">${verdict.pass ? "✓ Verified" : "! Rejected"}</span></div>
-    <div class="proof-meta"><div><span>Mandate</span><strong>${verdict.mandateId}</strong></div><div><span>Network</span><strong>${verdict.network}</strong></div><div><span>Verified at</span><strong>${verdict.verifiedAt} MYT</strong></div></div>
+    <div class="proof-meta"><div><span>Mandate</span><strong>${verdict.mandateId}</strong></div><div><span>Network</span><strong>${verdict.network}</strong></div><div><span>Verified at</span><strong>${verdict.verifiedAt} MYT</strong></div></div>${isLiveVerifierConfigured ? "" : '<p class="saved-verdict">Saved on-chain verdict</p>'}
     <div class="hash-row"><div><span>TRANSACTION HASH</span><strong>${truncate(verdict.transactionHash)}</strong></div><div class="hash-actions"><button data-copy="${verdict.transactionHash}">Copy</button><a href="${transactionUrl(verdict.transactionHash)}" target="_blank" rel="noreferrer">BscScan ↗</a></div></div>
     <div class="identity-links"><span><b>Buyer</b> Encik Rahman (demo) · <a href="${addressUrl(buyerAddress)}" target="_blank" rel="noreferrer">${truncate(buyerAddress)} ↗</a></span><span><b>Executor</b> · <a href="${addressUrl(executorAddress)}" target="_blank" rel="noreferrer">${truncate(executorAddress)} ↗</a></span><span><b>Mandate agent</b> · <a href="https://bnbagent-api.bnbchain.world/v1/rt/01M546AFGY9WQY3K6EC28QD649/.well-known/agent-card.json" target="_blank" rel="noreferrer">Agent card ↗</a></span><span><b>ERC-8004 identity</b> · Pending registration</span></div>
     <div class="check-table"><div class="check-heading"><span>Rule</span><span>Expected</span><span>On-chain evidence</span><span>Result</span></div>${verdict.checks.map((check) => `<div class="check ${check.pass ? "" : "failed-check"}"><strong>${check.name}</strong><span>${check.expected}</span><span>${check.actual}</span><b class="${check.pass ? "ok" : "no"}">${check.pass ? "Passed" : "Failed"}</b></div>`).join("")}</div>
@@ -43,7 +43,7 @@ function dashboardMarkup() {
   <main><header><div class="crumb">Proof of Work <b>/</b> BSC Testnet</div><a class="docs" href="https://github.com/nahiphog/BnB_BuilderHack#readme" target="_blank" rel="noreferrer">GitHub documentation ↗</a></header><div class="page">
     <section class="intro"><div><p class="kicker">MANDATE PROTOCOL</p><h2>Proof before payment.</h2><p>Every executor must prove it followed the buyer’s rules before it can get paid.</p><p class="malaysia">Malaysians lost RM2.68 billion to fake investment schemes (2024 to May 2026). Mandate makes “my trading bot works” provable.</p></div></section>
     <section class="metrics"><article><span>Buyer</span><strong>Encik Rahman</strong><p>Demo buyer · BSC Testnet</p></article><article><span>Mandate cap</span><strong>0.01 <small>tBNB</small></strong><p>No escrow funded in this demo</p></article><article><span>Deterministic proof</span><strong>9 <small>checks</small></strong><p class="green">Every rule is shown below</p></article><article><span>Verification price</span><strong>$0.01</strong><p>Per deterministic check</p></article></section>
-    <section class="grid"><div class="panel"><div class="panel-title"><div><p class="kicker">DEMO CASES</p><h3>Verifier scenarios</h3></div></div><div class="mandates">${mandateRows()}</div></div><div id="result">${verdictMarkup(currentVerdict)}</div></section>
+    <section class="grid"><div class="panel"><div class="panel-title"><div><p class="kicker">DEMO CASES</p><h3>Verifier scenarios</h3></div></div><div class="mandates">${mandateRows()}</div><div class="how-it-works"><p class="kicker">HOW IT WORKS</p><div><article><b>1</b><span><strong>Mandate</strong><small>Buyer defines a cap, route and recipient.</small></span></article><article><b>2</b><span><strong>Executor trades</strong><small>Agent submits the BSC Testnet transaction.</small></span></article><article><b>3</b><span><strong>Code verifies</strong><small>No proof, no pay.</small></span></article></div></div></div><div id="result">${verdictMarkup(currentVerdict)}</div></section>
     <section class="panel timeline"><div class="panel-title"><div><p class="kicker">${currentMandate.id}</p><h3>Evidence flow</h3></div><span>Real BSC Testnet evidence</span></div><div class="steps">${evidenceFlow()}</div></section>
   </div></main><div id="toast" role="status"></div>`;
 }
@@ -63,7 +63,7 @@ function render() {
     currentMandate = selected;
     currentVerdict = selected.status === "failed" ? failedVerdict : goodVerdict;
     render();
-    if (!selected.transactionHash) return;
+    if (!selected.transactionHash || !isLiveVerifierConfigured) return;
     try {
       currentVerdict = await verifyTransaction(selected.transactionHash);
       render();
