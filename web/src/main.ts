@@ -223,8 +223,8 @@ function guideMarkup() {
 }
 
 function dashboardMarkup() {
-  return `<aside class="sidebar"><div class="logo"><span class="mark">●</span>mandate</div><div class="side-copy"><p class="kicker">BSC TESTNET DEMO</p><strong>Deterministic proof for agent trades.</strong></div><div class="network"><i></i>BSC Testnet</div></aside>
-  <main><header><div class="crumb">Mandate <b>/</b> BSC Testnet</div><a class="docs" href="https://github.com/nahiphog/BnB_BuilderHack#readme" target="_blank" rel="noreferrer">GitHub documentation ↗</a></header><div class="page">
+  return `<aside class="sidebar"><div class="logo"><span class="mark">●</span>Trident</div><div class="side-copy"><p class="kicker">BSC TESTNET DEMO</p><strong>Deterministic proof for agent trades.</strong></div><div class="network"><i></i>BSC Testnet</div></aside>
+  <main><header><div class="crumb">Trident <b>/</b> BSC Testnet</div><div class="header-links"><a class="docs" href="about/">About</a><a class="docs" href="https://github.com/nahiphog/BnB_BuilderHack#readme" target="_blank" rel="noreferrer">GitHub documentation ↗</a></div></header><div class="page">
     <section class="intro"><div><p class="kicker">MANDATE PROTOCOL</p><h2>Proof before payment.</h2><p>Every executor must prove it followed the buyer’s rules before it can get paid.</p><p class="malaysia">Malaysians lost RM2.68 billion to fake investment schemes (2024 to May 2026). Mandate makes “my trading bot works” provable.</p></div><button class="primary hero-action" data-guide-start>Start 90-second demo →</button></section>
     ${sentinelPanel()}
     <section class="metrics"><article><span>Buyer</span><strong>Encik Rahman</strong><p>Demo buyer · BSC Testnet</p></article><article><span>Mandate cap</span><strong>0.01 <small>tBNB</small></strong><p>No escrow funded in this demo</p></article><article><span>Deterministic proof</span><strong>9 <small>checks</small></strong><p class="green">Every rule is shown below</p></article><article><span>Verification price</span><strong>$0.01</strong><p>Per deterministic check</p></article></section>
