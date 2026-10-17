@@ -1,0 +1,17 @@
+{
+  "name": "@mandate/executor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "swap": "tsx swap.ts",
+    "demo": "tsx demo.ts"
+  },
+  "dependencies": {
+    "ethers": "6.13.4"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "tsx": "4.19.2"
+  }
+}

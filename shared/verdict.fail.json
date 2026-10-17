@@ -1,0 +1,54 @@
+{
+  "mandateId": "m-001",
+  "transactionHash": "0xe00ff4e7021048ce670b5d8b9dcedc8fa0efbe4c67be7f11f50ffa84766a9113",
+  "pass": false,
+  "checks": [
+    {
+      "name": "transactionSucceeded",
+      "pass": true,
+      "evidence": "receipt.status=1, chainId=97, block 137247390"
+    },
+    {
+      "name": "routerAllowed",
+      "pass": true,
+      "evidence": "0xd99d1c33f9fc3444f8101754abc46c52416550d1"
+    },
+    {
+      "name": "selectorAllowed",
+      "pass": true,
+      "evidence": "0x7ff36ab5 swapExactETHForTokens"
+    },
+    {
+      "name": "paramsMatch",
+      "pass": true,
+      "evidence": "tokenIn, tokenOut, recipient, deadline match (path 2 hops)"
+    },
+    {
+      "name": "amountWithinCap",
+      "pass": false,
+      "evidence": "0.02 > 0.01 (tx.value)"
+    },
+    {
+      "name": "tokenOutMatches",
+      "pass": true,
+      "evidence": "8.656114681341968579 of 0x78867BbEeF44f2326bF8DDd1941a4439382EF2A7 to 0x4A79814A7006360eCED4454c9cf09fD3E7883FA9"
+    },
+    {
+      "name": "executorMatches",
+      "pass": true,
+      "evidence": "0x14e8c52d84a4c044dc83c8f5fc2c601c930f9c1f"
+    },
+    {
+      "name": "beforeDeadline",
+      "pass": true,
+      "evidence": "block time 1792208376 <= 1792237168"
+    },
+    {
+      "name": "minimumOutputMet",
+      "pass": true,
+      "evidence": "8.656114681341968579 >= 0"
+    }
+  ],
+  "report": "This trade broke 1 of 9 rules: it spent more than the cap. The executor does not qualify for payment and the buyer's escrow stays protected.",
+  "verifiedAt": "2026-10-17T03:39:41.242Z"
+}

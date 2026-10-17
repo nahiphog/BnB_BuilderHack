@@ -1,0 +1,10 @@
+node_modules/
+.studio/
+.env
+.env.*
+!.env.example
+*.keystore
+wallets/
+dist/
+mandate-code.zip
+demo-output.txt

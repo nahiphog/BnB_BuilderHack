@@ -1,0 +1,24 @@
+{
+  "mandateId": "m-001",
+  "buyer": "0x4A79814A7006360eCED4454c9cf09fD3E7883FA9",
+  "executor": "0x14E8c52d84A4c044DC83c8F5Fc2C601c930F9C1f",
+  "jobId": "0",
+  "chainId": 97,
+  "action": "buy",
+  "tokenIn": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+  "tokenOut": "0x78867BbEeF44f2326bF8DDd1941a4439382EF2A7",
+  "recipient": "0x4A79814A7006360eCED4454c9cf09fD3E7883FA9",
+  "allowedRouters": [
+    "0xD99D1c33F9fC3444f8101754aBC46c52416550D1"
+  ],
+  "allowedSelectors": [
+    "0x7ff36ab5"
+  ],
+  "maxAmountIn": "10000000000000000",
+  "minimumAmountOut": "0",
+  "quotedAmountOut": "0",
+  "quoteTimestamp": "0",
+  "maxSlippageBps": 50,
+  "deadline": 1792237168,
+  "executorFee": "1000000000000000"
+}

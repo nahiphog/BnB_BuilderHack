@@ -1,0 +1,54 @@
+{
+  "mandateId": "m-001",
+  "transactionHash": "0x5a7ac86a1c102f90981345319b6f1c3c657c37ec38e70d0f0fae06535ca1134a",
+  "pass": true,
+  "checks": [
+    {
+      "name": "transactionSucceeded",
+      "pass": true,
+      "evidence": "receipt.status=1, chainId=97, block 137247377"
+    },
+    {
+      "name": "routerAllowed",
+      "pass": true,
+      "evidence": "0xd99d1c33f9fc3444f8101754abc46c52416550d1"
+    },
+    {
+      "name": "selectorAllowed",
+      "pass": true,
+      "evidence": "0x7ff36ab5 swapExactETHForTokens"
+    },
+    {
+      "name": "paramsMatch",
+      "pass": true,
+      "evidence": "tokenIn, tokenOut, recipient, deadline match (path 2 hops)"
+    },
+    {
+      "name": "amountWithinCap",
+      "pass": true,
+      "evidence": "0.005 <= 0.01 (tx.value)"
+    },
+    {
+      "name": "tokenOutMatches",
+      "pass": true,
+      "evidence": "2.168204658198892184 of 0x78867BbEeF44f2326bF8DDd1941a4439382EF2A7 to 0x4A79814A7006360eCED4454c9cf09fD3E7883FA9"
+    },
+    {
+      "name": "executorMatches",
+      "pass": true,
+      "evidence": "0x14e8c52d84a4c044dc83c8f5fc2c601c930f9c1f"
+    },
+    {
+      "name": "beforeDeadline",
+      "pass": true,
+      "evidence": "block time 1792208370 <= 1792237168"
+    },
+    {
+      "name": "minimumOutputMet",
+      "pass": true,
+      "evidence": "2.168204658198892184 >= 0"
+    }
+  ],
+  "report": "All 9 checks passed. The executor completed the approved swap within the buyer's rules and qualifies for payment.",
+  "verifiedAt": "2026-10-17T03:39:40.846Z"
+}
