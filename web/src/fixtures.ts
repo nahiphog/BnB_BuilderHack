@@ -5,6 +5,7 @@ import type { Mandate, SharedMandate, SharedVerdict, VerificationVerdict } from 
 
 export const demoMandate = mandateJson as SharedMandate;
 
+const clock = (unixSeconds: number) => new Date(unixSeconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const shortAddress = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)}`;
 function amountFromEvidence(evidence: string) {
   const raw = evidence.match(/^(\d+(?:\.\d+)?)/)?.[1];
@@ -22,7 +23,7 @@ function expectedRule(name: string) {
     amountWithinCap: "≤ 0.01 tBNB",
     tokenOutMatches: "BUSD to Encik Rahman",
     executorMatches: "Approved executor",
-    beforeDeadline: "Before 7:39 PM MYT",
+    beforeDeadline: `Before ${clock(demoMandate.deadline)} MYT`,
     minimumOutputMet: "≥ 0 BUSD"
   };
   return rules[name] ?? "Mandate rule";
@@ -36,7 +37,10 @@ function readableEvidence(name: string, evidence: string) {
   if (name === "amountWithinCap") return `${amountFromEvidence(evidence)} tBNB spent`;
   if (name === "tokenOutMatches" || name === "minimumOutputMet") return `${amountFromEvidence(evidence)} BUSD to Encik Rahman`;
   if (name === "executorMatches") return `Executor ${shortAddress(demoMandate.executor)}`;
-  if (name === "beforeDeadline") return "11:39 AM MYT · before deadline";
+  if (name === "beforeDeadline") {
+    const m = evidence.match(/block time (\d+) (<=|>)/);
+    return m ? `${clock(Number(m[1]))} MYT · ${m[2] === "<=" ? "before" : "after"} deadline` : evidence;
+  }
   return evidence;
 }
 
