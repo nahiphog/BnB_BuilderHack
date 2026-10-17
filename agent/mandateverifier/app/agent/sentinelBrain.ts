@@ -57,6 +57,7 @@ export async function think(system: string, prompt: string, timeoutMs = 45_000):
     model: getModel(),
     system,
     prompt,
+    maxRetries: 0, // one attempt per tick: retries just burn the shared free-tier rate limit
     abortSignal: AbortSignal.timeout(timeoutMs),
   });
   return res.text.trim();

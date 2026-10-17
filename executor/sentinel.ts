@@ -39,6 +39,8 @@ const BUYER = "0x4A79814A7006360eCED4454c9cf09fD3E7883FA9"; // Encik Rahman
 const CAP_BNB = 0.01; // mandate: max tBNB per trade
 const CAP_BUSD = 20; // mandate: max BUSD per exit trade
 const MAX_TRADES = 6;
+const MANDATE_AGENT = (process.env.MANDATE_AGENT_URL ?? "http://localhost:9000").replace(/\/$/, ""); // the separate Mandate agent (bag dev)
+const MANDATE_ERC8004_ID = 2644;
 const ROOT = resolve(import.meta.dirname, "..");
 const SHARED = join(ROOT, "shared");
 const EXEC_DIR = join(homedir(), "bnbhack", "executor-wallet");
@@ -186,6 +188,42 @@ function guard(d: Decision, pos: { busd: number } | null, trades: number): strin
   return why; // router, tokens and recipient are hard-coded below, so the AI cannot change them
 }
 
+// ── Mandate agent: a SEPARATE agent process (ERC-8004 #2644) that Sentinel hands every trade to ──
+let mandateAgentName = "";
+async function discoverMandate(): Promise<boolean> {
+  try {
+    const r = await fetch(`${MANDATE_AGENT}/.well-known/agent-card.json`, { signal: AbortSignal.timeout(5000) });
+    const card = (await r.json()) as { name?: string; description?: string };
+    mandateAgentName = card.name ?? "mandateverifier";
+    say("A2A", c.m, `discovered the Mandate agent "${mandateAgentName}" (ERC-8004 #${MANDATE_ERC8004_ID}) via its A2A agent card at ${MANDATE_AGENT}`);
+    record("handoff", `Discovered the Mandate agent "${mandateAgentName}" (ERC-8004 #${MANDATE_ERC8004_ID}) via its A2A agent card`);
+    return true;
+  } catch {
+    say("A2A", c.y, `Mandate agent not reachable at ${MANDATE_AGENT}. Start it with: cd agent/mandateverifier && bag dev. Falling back to local checks.`);
+    return false;
+  }
+}
+async function askMandate(mandate: Mandate, hash: string, agentUp: boolean): Promise<{ v: Verdict; via: string }> {
+  if (agentUp) {
+    try {
+      say("A2A", c.m, `Sentinel → Mandate agent #${MANDATE_ERC8004_ID}: "verify my trade ${hash.slice(0, 10)}… against Rahman's mandate"`);
+      record("handoff", `Sentinel handed its trade to the Mandate agent #${MANDATE_ERC8004_ID} for an independent verdict`, { hash });
+      const r = await fetch(`${MANDATE_AGENT}/api/verify`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mandate, transactionHash: hash }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const v = (await r.json()) as Verdict & { error?: string };
+      if (r.ok && Array.isArray(v.checks)) return { v, via: `Mandate agent #${MANDATE_ERC8004_ID}` };
+      say("A2A", c.y, `Mandate agent replied with an error (${v.error ?? r.status}); falling back to local checks`);
+    } catch (e) {
+      say("A2A", c.y, `Mandate agent did not answer (${(e as Error).message}); falling back to local checks`);
+    }
+  }
+  return { v: await verifyMandate(mandate, hash as `0x${string}`), via: "local checks (fallback)" };
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(`\n${c.b}${c.cy}SENTINEL${c.x}  autonomous AI risk agent for Encik Rahman's BNB  ${c.dim}· refereed by Mandate${c.x}\n`);
@@ -217,6 +255,28 @@ async function main() {
   say("AGENT", c.cy, `wallet ${wallet.address}  ·  ${formatEther(await provider.getBalance(wallet.address))} tBNB  ·  brain: ${run.brain}`);
   say("MANDATE", c.m, `max ${CAP_BNB} tBNB per entry, max ${CAP_BUSD} BUSD per exit, PancakeSwap v2 only, BNB<->BUSD only, ${MAX_TRADES} trades max`);
   record("start", `Sentinel started. Brain: ${run.brain}.`, { wallet: wallet.address });
+  const mandateUp = await discoverMandate();
+
+  // wait for any transaction still pending from an earlier run, so balances are real
+  for (let i = 0; i < 24; i++) {
+    const [latest, pending] = await Promise.all([provider.getTransactionCount(wallet.address, "latest"), provider.getTransactionCount(wallet.address, "pending")]);
+    if (pending <= latest) break;
+    if (i === 0) say("AGENT", c.y, `${pending - latest} transaction(s) from an earlier run still pending; waiting for them to confirm…`);
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+
+  // unwrap WBNB left over from earlier exits so Sentinel has native BNB to trade and pay gas with
+  const wbnb = new Contract(WBNB, ["function balanceOf(address) view returns (uint256)", "function withdraw(uint256)"], wallet);
+  const wbnbBal: bigint = await wbnb.balanceOf(wallet.address).catch(() => 0n);
+  if (wbnbBal > 0n) {
+    try {
+      const tx = await wbnb.withdraw(wbnbBal, { gasPrice: await gasPrice(), type: 0 });
+      await tx.wait();
+      say("AGENT", c.cy, `unwrapped ${formatEther(wbnbBal)} WBNB → BNB · balance now ${formatEther(await provider.getBalance(wallet.address))} tBNB`);
+    } catch (e) {
+      say("AGENT", c.y, `could not unwrap WBNB: ${(e as Error).message.split("\n")[0]}`);
+    }
+  }
 
   // resume an existing BUSD position if one is already in the wallet
   const startBusd = Number(formatUnits(await busd.balanceOf(wallet.address), 18));
@@ -299,14 +359,16 @@ async function main() {
           }
           trades++;
           record("trade", `${d.action} sent`, { hash, url: `https://testnet.bscscan.com/tx/${hash}` });
-          const v: Verdict = await verifyMandate(mandate, hash as `0x${string}`);
+          const { v, via } = await askMandate(mandate, hash, mandateUp);
           const failed = v.checks.filter((x) => !x.pass).map((x) => x.name);
-          say("PROVE", v.pass ? c.g : c.r, `Mandate verified Sentinel's own trade: ${v.pass ? "PASS 9/9 → qualifies for payment" : `FAIL (${failed.join(", ")}) → payment blocked`}`);
-          record("verdict", v.pass ? "Mandate PASS 9/9" : `Mandate FAIL: ${failed.join(", ")}`, v);
+          say("PROVE", v.pass ? c.g : c.r, `${via} verified Sentinel's trade: ${v.pass ? `PASS ${v.checks.length}/${v.checks.length} → qualifies for payment` : `FAIL (${failed.join(", ")}) → payment blocked`}`);
+          record("verdict", v.pass ? `${via}: PASS ${v.checks.length}/${v.checks.length}` : `${via}: FAIL (${failed.join(", ")})`, v);
           verdicts.push({ action: d.action, hash, pass: v.pass });
         } catch (e) {
-          say("SIGN", c.r, `trade failed: ${(e as Error).message.split("\n")[0]}`);
-          record("error", `Trade failed: ${(e as Error).message.split("\n")[0]}`);
+          const err = e as { reason?: string; shortMessage?: string; message: string };
+          const short = (err.reason ?? err.shortMessage ?? err.message.split("\n")[0]).slice(0, 140);
+          say("SIGN", c.r, `trade refused by the chain: ${short}. Nothing changed; Sentinel continues.`);
+          record("error", `Trade refused by the chain: ${short}`);
         }
       }
     }
