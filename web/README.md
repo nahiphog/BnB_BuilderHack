@@ -13,7 +13,15 @@ Open the localhost URL printed by Vite, normally `http://127.0.0.1:5173/`.
 
 ## Connect the verifier
 
-The UI uses its local fixture verdicts by default. To use Hassan's live verifier endpoint, create `web/.env.local` with:
+The dashboard renders the real proof data in `../shared/verdict.pass.json` and `../shared/verdict.fail.json` by default. For live verdicts, start the local verifier in another terminal:
+
+```bash
+cd ../core
+npm ci
+npm run serve
+```
+
+During local Vite development, the UI automatically calls `http://localhost:8787/api/verify` and sends the shared mandate plus the selected transaction hash. To point at another verifier endpoint, create `web/.env.local` with:
 
 ```bash
 VITE_VERIFY_URL=https://your-verifier.example/api/verify
@@ -22,7 +30,7 @@ VITE_VERIFY_URL=https://your-verifier.example/api/verify
 The client sends `POST` JSON in the format:
 
 ```json
-{ "transactionHash": "0x..." }
+{ "mandate": { "...": "shared/mandate.demo.json" }, "transactionHash": "0x..." }
 ```
 
 ## GitHub Pages
