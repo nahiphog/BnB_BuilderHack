@@ -110,17 +110,49 @@ async function runLive() {
   }
 }
 
+function sentinelChart(run: SentinelRun): string {
+  const pts = run.events.filter((e) => e.kind === "watch" && typeof e.data?.bnb === "number").map((e) => ({ t: Date.parse(e.t), p: Number(e.data?.bnb) }));
+  if (pts.length < 2) return "";
+  const W = 1000, H = 230, L = 64, R = 20, T = 18, B = 34;
+  const t0 = pts[0].t, t1 = Math.max(pts[pts.length - 1].t, ...run.events.map((e) => Date.parse(e.t)));
+  let lo = Math.min(...pts.map((d) => d.p)), hi = Math.max(...pts.map((d) => d.p));
+  const pad = Math.max((hi - lo) * 0.25, hi * 0.0005);
+  lo -= pad; hi += pad;
+  const x = (t: number) => L + ((t - t0) / Math.max(t1 - t0, 1)) * (W - L - R);
+  const y = (p: number) => T + (1 - (p - lo) / (hi - lo)) * (H - T - B);
+  const priceAt = (t: number) => pts.reduce((best, d) => (Math.abs(d.t - t) < Math.abs(best.t - t) ? d : best), pts[0]).p;
+  const line = pts.map((d, i) => `${i ? "L" : "M"}${x(d.t).toFixed(1)},${y(d.p).toFixed(1)}`).join(" ");
+  const grid = [0, 0.5, 1].map((f) => { const p = lo + (hi - lo) * f; return `<line x1="${L}" x2="${W - R}" y1="${y(p)}" y2="${y(p)}" class="sc-grid"/><text x="${L - 8}" y="${y(p) + 4}" class="sc-axis" text-anchor="end">$${p.toFixed(2)}</text>`; }).join("");
+  const fmt = (t: number) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  const xt = `<text x="${L}" y="${H - 10}" class="sc-axis">${fmt(t0)}</text><text x="${W - R}" y="${H - 10}" class="sc-axis" text-anchor="end">${fmt(t1)}</text>`;
+  let lastAction = "";
+  const marks: string[] = [];
+  for (const e of run.events) {
+    if (e.kind === "decide") lastAction = String(e.data?.action ?? "");
+    const t = Date.parse(e.t), cx = x(t), cy = y(priceAt(t));
+    if (e.kind === "trade") {
+      const enter = lastAction === "ENTER";
+      const tri = enter ? `M${cx - 7},${cy - 16} L${cx + 7},${cy - 16} L${cx},${cy - 5} Z` : `M${cx - 7},${cy + 16} L${cx + 7},${cy + 16} L${cx},${cy + 5} Z`;
+      marks.push(`<g class="sc-mark ${enter ? "enter" : "exit"}"><path d="${tri}"/><text x="${cx}" y="${enter ? cy - 22 : cy + 30}" text-anchor="middle">${enter ? "Sentinel de-risked to BUSD" : "Sentinel back to BNB"}</text></g>`);
+    }
+    if (e.kind === "blocked") marks.push(`<g class="sc-mark blocked"><circle cx="${cx}" cy="${cy}" r="7"/><path d="M${cx - 3.5},${cy - 3.5} L${cx + 3.5},${cy + 3.5} M${cx + 3.5},${cy - 3.5} L${cx - 3.5},${cy + 3.5}"/><text x="${cx}" y="${cy + 24}" text-anchor="middle">blocked</text></g>`);
+  }
+  const hits = pts.map((d) => `<circle cx="${x(d.t)}" cy="${y(d.p)}" r="3" class="sc-dot" data-tip="${fmt(d.t)} · BNB $${d.p.toFixed(2)}"/>`).join("");
+  return `<div class="sentinel-chart"><div class="sc-head"><strong>BNB price Sentinel watched (live Binance data)</strong><span id="bnb-now"></span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="BNB price during the Sentinel run with its trades and blocked attempts marked">${grid}${xt}<path d="${line}" class="sc-line"/>${hits}${marks.join("")}</svg><div class="sc-tip" id="sc-tip"></div></div>`;
+}
+
 function sentinelPanel() {
   if (!sentinelRun) {
     return `<section class="panel sentinel"><div class="panel-title"><div><p class="kicker">AUTONOMOUS AGENT</p><h3>Sentinel</h3></div></div><p class="sentinel-empty">Sentinel hasn't published a run yet. Run <code>cd executor && npm run sentinel</code>.</p></section>`;
   }
-  const icon: Record<string, string> = { start: "▶", watch: "◉", decide: "◆", blocked: "✗", trade: "↗", verdict: "✓", pnl: "≈", error: "!", end: "■" };
+  const icon: Record<string, string> = { inject: "⚠", start: "▶", watch: "◉", decide: "◆", blocked: "✗", trade: "↗", verdict: "✓", pnl: "≈", error: "!", end: "■" };
   const rows = sentinelRun.events.filter((e) => e.kind !== "watch" || sentinelRun.events.indexOf(e) % 1 === 0).slice(-60).map((e) => {
     const time = new Date(e.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
     const url = typeof e.data?.url === "string" ? e.data.url : "";
     const hash = typeof e.data?.hash === "string" ? e.data.hash : typeof e.data?.transactionHash === "string" ? e.data.transactionHash : "";
     const pass = e.kind === "verdict" ? Boolean(e.data?.pass) : null;
-    const tone = e.kind === "blocked" || e.kind === "error" || pass === false ? "bad" : e.kind === "verdict" || e.kind === "trade" ? "good" : e.kind === "decide" ? "think" : "";
+    const tone = e.kind === "blocked" || e.kind === "error" || e.kind === "inject" || pass === false ? "bad" : e.kind === "verdict" || e.kind === "trade" ? "good" : e.kind === "decide" ? "think" : "";
     const extra = url ? ` <a href="${url}" target="_blank" rel="noreferrer">BscScan ↗</a>` : "";
     const verify = hash && e.kind === "verdict" ? ` <button class="sentinel-verify" data-verify-hash="${hash}">Verify live</button>` : "";
     return `<li class="${e.kind} ${tone}"><time>${time}</time><b>${icon[e.kind] ?? "·"}</b><span>${escapeHtml(e.text)}${extra}${verify}</span></li>`;
@@ -129,6 +161,7 @@ function sentinelPanel() {
   return `<section class="panel sentinel"><div class="panel-title"><div><p class="kicker">AUTONOMOUS AGENT · LAST RUN</p><h3>Sentinel: an AI risk agent, refereed by Mandate</h3></div><span>Brain: ${escapeHtml(sentinelRun.brain || "unknown")}</span></div>
     <div class="sentinel-loop"><span>Watch live market</span><i>→</i><span>AI decides</span><i>→</i><span class="guard">Guard checks mandate before signing</span><i>→</i><span>Signs trade itself</span><i>→</i><span class="prove">Mandate proves it</span></div>
     <div class="sentinel-stats"><div><strong>${s.trades ?? 0}</strong><span>autonomous trades</span></div><div><strong>${s.blocked ?? 0}</strong><span>blocked before signing</span></div><div><strong>${sentinelRun.events.filter((e) => e.kind === "verdict" && e.data?.pass).length}</strong><span>Mandate PASS verdicts</span></div></div>
+    ${sentinelChart(sentinelRun)}
     <ol class="sentinel-log">${rows}</ol></section>`;
 }
 
@@ -149,6 +182,23 @@ function showToast(message: string) {
   toast.textContent = message;
   toast.classList.add("show");
   window.setTimeout(() => toast.classList.remove("show"), 2500);
+}
+
+let liveBnb = "";
+async function showLiveBnb() {
+  const el = document.querySelector<HTMLSpanElement>("#bnb-now");
+  if (!el) return;
+  if (!liveBnb) {
+    try {
+      const r = await fetch("https://data-api.binance.vision/api/v3/ticker/24hr?symbol=BNBUSDT", { signal: AbortSignal.timeout(6000) });
+      const j = await r.json();
+      const ch = Number(j.priceChangePercent);
+      liveBnb = `Live now: BNB $${Number(j.lastPrice).toFixed(2)} (${ch >= 0 ? "+" : ""}${ch.toFixed(2)}% 24h)`;
+    } catch {
+      return;
+    }
+  }
+  el.textContent = liveBnb;
 }
 
 function render() {
@@ -180,6 +230,12 @@ function render() {
     if (error) error.textContent = "";
   });
   document.querySelector<HTMLButtonElement>("#live-run")?.addEventListener("click", () => { void runLive(); });
+  const tip = document.querySelector<HTMLDivElement>("#sc-tip");
+  document.querySelectorAll<SVGCircleElement>(".sc-dot").forEach((dot) => {
+    dot.addEventListener("mouseenter", () => { if (tip) { tip.textContent = dot.dataset.tip ?? ""; tip.classList.add("show"); } });
+    dot.addEventListener("mouseleave", () => tip?.classList.remove("show"));
+  });
+  void showLiveBnb();
   document.querySelectorAll<HTMLButtonElement>("[data-verify-hash]").forEach((button) => button.addEventListener("click", () => {
     liveHash = button.dataset.verifyHash ?? liveHash;
     render();
