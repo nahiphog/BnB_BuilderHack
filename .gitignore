@@ -1,4 +1,9 @@
 node_modules/
+web/node_modules/
+web/dist/
+web/.env.local
+
+# Local Agent Studio credentials and runtime state
 .studio/
 .env
 .env.*
