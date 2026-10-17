@@ -6,6 +6,11 @@ import { demoMandate, toDisplayVerdict } from "./fixtures";
 import { verifyLive, type LiveEvent } from "./live/verifyLive";
 import type { Mandate as LiveMandate } from "./live/types";
 
+type SentinelEvent = { t: string; kind: string; text: string; data?: Record<string, unknown> };
+type SentinelRun = { startedAt: string; brain: string; events: SentinelEvent[]; summary?: { trades?: number; blocked?: number } };
+const sentinelFiles = import.meta.glob("../../shared/sentinel-run.json", { eager: true, import: "default" }) as Record<string, SentinelRun>;
+const sentinelRun: SentinelRun | null = Object.values(sentinelFiles)[0] ?? null;
+
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("App root is missing");
 const root = app;
@@ -105,12 +110,35 @@ async function runLive() {
   }
 }
 
+function sentinelPanel() {
+  if (!sentinelRun) {
+    return `<section class="panel sentinel"><div class="panel-title"><div><p class="kicker">AUTONOMOUS AGENT</p><h3>Sentinel</h3></div></div><p class="sentinel-empty">Sentinel hasn't published a run yet. Run <code>cd executor && npm run sentinel</code>.</p></section>`;
+  }
+  const icon: Record<string, string> = { start: "▶", watch: "◉", decide: "◆", blocked: "✗", trade: "↗", verdict: "✓", pnl: "≈", error: "!", end: "■" };
+  const rows = sentinelRun.events.filter((e) => e.kind !== "watch" || sentinelRun.events.indexOf(e) % 1 === 0).slice(-60).map((e) => {
+    const time = new Date(e.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+    const url = typeof e.data?.url === "string" ? e.data.url : "";
+    const hash = typeof e.data?.hash === "string" ? e.data.hash : typeof e.data?.transactionHash === "string" ? e.data.transactionHash : "";
+    const pass = e.kind === "verdict" ? Boolean(e.data?.pass) : null;
+    const tone = e.kind === "blocked" || e.kind === "error" || pass === false ? "bad" : e.kind === "verdict" || e.kind === "trade" ? "good" : e.kind === "decide" ? "think" : "";
+    const extra = url ? ` <a href="${url}" target="_blank" rel="noreferrer">BscScan ↗</a>` : "";
+    const verify = hash && e.kind === "verdict" ? ` <button class="sentinel-verify" data-verify-hash="${hash}">Verify live</button>` : "";
+    return `<li class="${e.kind} ${tone}"><time>${time}</time><b>${icon[e.kind] ?? "·"}</b><span>${escapeHtml(e.text)}${extra}${verify}</span></li>`;
+  }).join("");
+  const s = sentinelRun.summary ?? {};
+  return `<section class="panel sentinel"><div class="panel-title"><div><p class="kicker">AUTONOMOUS AGENT · LAST RUN</p><h3>Sentinel: an AI risk agent, refereed by Mandate</h3></div><span>Brain: ${escapeHtml(sentinelRun.brain || "unknown")}</span></div>
+    <div class="sentinel-loop"><span>Watch live market</span><i>→</i><span>AI decides</span><i>→</i><span class="guard">Guard checks mandate before signing</span><i>→</i><span>Signs trade itself</span><i>→</i><span class="prove">Mandate proves it</span></div>
+    <div class="sentinel-stats"><div><strong>${s.trades ?? 0}</strong><span>autonomous trades</span></div><div><strong>${s.blocked ?? 0}</strong><span>blocked before signing</span></div><div><strong>${sentinelRun.events.filter((e) => e.kind === "verdict" && e.data?.pass).length}</strong><span>Mandate PASS verdicts</span></div></div>
+    <ol class="sentinel-log">${rows}</ol></section>`;
+}
+
 function dashboardMarkup() {
   return `<aside class="sidebar"><div class="logo"><span class="mark">●</span>mandate</div><div class="side-copy"><p class="kicker">BSC TESTNET DEMO</p><strong>Deterministic proof for agent trades.</strong></div><div class="network"><i></i>BSC Testnet</div></aside>
   <main><header><div class="crumb">Proof of Work <b>/</b> BSC Testnet</div><a class="docs" href="https://github.com/nahiphog/BnB_BuilderHack#readme" target="_blank" rel="noreferrer">GitHub documentation ↗</a></header><div class="page">
     <section class="intro"><div><p class="kicker">MANDATE PROTOCOL</p><h2>Proof before payment.</h2><p>Every executor must prove it followed the buyer’s rules before it can get paid.</p><p class="malaysia">Malaysians lost RM2.68 billion to fake investment schemes (2024 to May 2026). Mandate makes “my trading bot works” provable.</p></div></section>
     <section class="metrics"><article><span>Buyer</span><strong>Encik Rahman</strong><p>Demo buyer · BSC Testnet</p></article><article><span>Mandate cap</span><strong>0.01 <small>tBNB</small></strong><p>No escrow funded in this demo</p></article><article><span>Deterministic proof</span><strong>9 <small>checks</small></strong><p class="green">Every rule is shown below</p></article><article><span>Verification price</span><strong>$0.01</strong><p>Per deterministic check</p></article></section>
     <section class="grid"><div class="panel"><div class="panel-title"><div><p class="kicker">DEMO CASES</p><h3>Verifier scenarios</h3></div></div><div class="mandates">${mandateRows()}</div><div class="how-it-works"><p class="kicker">HOW IT WORKS</p><div><article><b>1</b><span><strong>Mandate</strong><small>Buyer defines a cap, route and recipient.</small></span></article><article><b>2</b><span><strong>Executor trades</strong><small>Agent submits the BSC Testnet transaction.</small></span></article><article><b>3</b><span><strong>Code verifies</strong><small>No proof, no pay.</small></span></article></div></div>${livePanel()}</div><div id="result">${verdictMarkup(currentVerdict)}</div></section>
+    ${sentinelPanel()}
     <section class="panel timeline"><div class="panel-title"><div><p class="kicker">${currentMandate.id}</p><h3>Evidence flow</h3></div><span>Real BSC Testnet evidence</span></div><div class="steps">${evidenceFlow()}</div></section>
   </div></main><div id="toast" role="status"></div>`;
 }
@@ -152,6 +180,12 @@ function render() {
     if (error) error.textContent = "";
   });
   document.querySelector<HTMLButtonElement>("#live-run")?.addEventListener("click", () => { void runLive(); });
+  document.querySelectorAll<HTMLButtonElement>("[data-verify-hash]").forEach((button) => button.addEventListener("click", () => {
+    liveHash = button.dataset.verifyHash ?? liveHash;
+    render();
+    document.querySelector(".live-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    void runLive();
+  }));
   document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => button.addEventListener("click", () => {
     void navigator.clipboard.writeText(button.dataset.copy ?? "");
     showToast("Transaction hash copied.");
