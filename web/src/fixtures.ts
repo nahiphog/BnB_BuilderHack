@@ -78,7 +78,6 @@ export const goodVerdict = toDisplayVerdict(passVerdictJson as SharedVerdict);
 export const failedVerdict = toDisplayVerdict(failVerdictJson as SharedVerdict);
 
 export const mandates: Mandate[] = [
-  { id: "M-001", title: "Mandate awaiting execution", tokenIn: "tBNB", tokenOut: "BUSD", maxAmountIn: "0.01 tBNB", allowedRouter: "PancakeSwap V2 Testnet", deadline: "BSC Testnet demo", executor: "0x14e8…9c1f", status: "executing" },
   { id: "M-002", title: "Honest bounded swap", tokenIn: "tBNB", tokenOut: "BUSD", maxAmountIn: "0.01 tBNB", allowedRouter: "PancakeSwap V2 Testnet", deadline: "BSC Testnet demo", executor: "0x14e8…9c1f", status: "verified", transactionHash: goodVerdict.transactionHash },
   { id: "M-003", title: "Overspend attempt", tokenIn: "tBNB", tokenOut: "BUSD", maxAmountIn: "0.01 tBNB", allowedRouter: "PancakeSwap V2 Testnet", deadline: "BSC Testnet demo", executor: "0x14e8…9c1f", status: "failed", transactionHash: failedVerdict.transactionHash }
 ];
